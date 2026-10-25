@@ -1,0 +1,6 @@
+{
+  "name": "BD Location Assist",
+  "description": "বাংলাদেশ-কেন্দ্রিক নিরাপদ সম্মতিভিত্তিক লাইভ লোকেশন শেয়ারিং ও ট্র্যাকিং প্ল্যাটফর্ম। Real-time consent-based location sharing for Bangladesh.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

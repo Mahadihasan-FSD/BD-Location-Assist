@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0F172A"
+    android:padding="20dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Device Pairing"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Register this phone to your BD Location Assist owner account"
+            android:textColor="#94A3B8"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/tvDeviceInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:padding="12dp"
+            android:background="#1E293B"
+            android:textColor="#38BDF8"
+            android:textSize="13sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Owner Email Account"
+            android:textColor="#E2E8F0"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/etOwnerEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:hint="e.g. mahadihassanrafi2007@gmail.com"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#64748B"
+            android:inputType="textEmailAddress"
+            android:backgroundTint="#0284C7" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Device Nickname"
+            android:textColor="#E2E8F0"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/etDeviceLabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:hint="e.g. My Pixel 8 Pro"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#64748B"
+            android:backgroundTint="#0284C7" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Pairing Authorization Code (Optional / From Web)"
+            android:textColor="#E2E8F0"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/etPairingCode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:hint="6-digit Web Code or leave blank"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#64748B"
+            android:backgroundTint="#0284C7" />
+
+        <Button
+            android:id="@+id/btnAuthorize"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="Authorize &amp; Register Device"
+            android:backgroundTint="#0284C7" />
+
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">BD Location Assist</string>
+    <string name="recovery_service_title">Lost-Phone Recovery Active</string>
+    <string name="recovery_service_desc">This device is actively registered with BD Location Assist. Tap to open or disable recovery.</string>
+    <string name="stop_recovery_action">Pause Recovery</string>
+    <string name="open_dashboard_action">Manage Device</string>
+    <string name="location_disclosure_title">Location Usage Disclosure</string>
+    <string name="location_disclosure_body">BD Location Assist collects precise location data to enable lost-phone recovery and real-time remote locating even when the app is closed or not in use. A persistent notification is always displayed while recovery is enabled, ensuring complete transparency and owner control.</string>
+    <string name="owner_registration_title">Device Ownership Authorization</string>
+    <string name="unlink_warning">Unlinking this device immediately revokes its credentials and disables all remote tracking capabilities.</string>
+</resources>
