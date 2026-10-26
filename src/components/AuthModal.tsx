@@ -198,11 +198,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }),
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data?.user) {
-          onLoginSuccess(data.user);
-          onClose();
-          return;
+        const ct = res.headers.get('content-type');
+        if (ct && ct.includes('application/json')) {
+          const data = await res.json();
+          if (data?.user) {
+            onLoginSuccess(data.user);
+            onClose();
+            return;
+          }
         }
       }
       onLoginSuccess({
