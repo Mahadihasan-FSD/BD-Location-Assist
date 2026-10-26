@@ -43,6 +43,7 @@ export interface SharingSession {
   purpose: string;
   destinationUrl?: string;
   invitationTokenHash: string;
+  invitationToken?: string;
   status: 'PENDING_CONSENT' | 'ACTIVE' | 'SHARING' | 'EXPIRED' | 'REVOKED' | 'STOPPED';
   durationMinutes: number | null;
   invitationExpiresAt: string;
@@ -205,26 +206,29 @@ app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
       });
 
       if (tokenRes.ok) {
-        const tokenData = await tokenRes.json();
-        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: { Authorization: `Bearer ${tokenData.access_type}` },
-        });
+        const tokenData: any = await tokenRes.json();
+        const accessToken = tokenData.access_token || tokenData.id_token;
+        if (accessToken) {
+          const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
 
-        if (userInfoRes.ok) {
-          const profile = await userInfoRes.json();
-          let user = users.find((u) => u.email.toLowerCase() === profile.email.toLowerCase());
-          if (!user) {
-            user = {
-              id: 'usr_' + crypto.randomBytes(6).toString('hex'),
-              email: profile.email,
-              name: profile.name || profile.email.split('@')[0],
-              avatarUrl: profile.picture,
-              token: 'auth_' + crypto.randomBytes(16).toString('hex'),
-              createdAt: new Date().toISOString(),
-            };
-            users.push(user);
+          if (userInfoRes.ok) {
+            const profile: any = await userInfoRes.json();
+            let user = users.find((u) => u.email.toLowerCase() === profile.email.toLowerCase());
+            if (!user) {
+              user = {
+                id: 'usr_' + crypto.randomBytes(6).toString('hex'),
+                email: profile.email,
+                name: profile.name || profile.email.split('@')[0],
+                avatarUrl: profile.picture,
+                token: 'auth_' + crypto.randomBytes(16).toString('hex'),
+                createdAt: new Date().toISOString(),
+              };
+              users.push(user);
+            }
+            authenticatedUser = user;
           }
-          authenticatedUser = user;
         }
       }
     } catch (e) {
@@ -346,6 +350,7 @@ app.post('/api/sessions', authenticateOwner, (req, res) => {
     purpose: cleanPurpose,
     destinationUrl: validDestinationUrl,
     invitationTokenHash: tokenHash,
+    invitationToken: rawInvitationToken,
     status: 'PENDING_CONSENT',
     durationMinutes: duration,
     invitationExpiresAt,
@@ -514,7 +519,9 @@ app.get('/api/invitations/:token', (req, res) => {
   }
 
   const tokenHash = hashToken(token);
-  const session = sessions.find((s) => s.invitationTokenHash === tokenHash);
+  const session = sessions.find(
+    (s) => s.invitationTokenHash === tokenHash || s.invitationTokenHash === token || s.invitationToken === token || s.id === token
+  );
 
   if (!session) {
     return res.status(404).json({
@@ -591,7 +598,9 @@ app.post('/api/invitations/:token/consent', (req, res) => {
   }
 
   const tokenHash = hashToken(token);
-  const session = sessions.find((s) => s.invitationTokenHash === tokenHash);
+  const session = sessions.find(
+    (s) => s.invitationTokenHash === tokenHash || s.invitationTokenHash === token || s.invitationToken === token || s.id === token
+  );
 
   if (!session) {
     return res.status(404).json({ error: 'ইনভাইটেশন সেশন পাওয়া যায়নি।' });
@@ -818,6 +827,19 @@ app.get('/api/sessions/:sessionId/location', authenticateOwner, (req, res) => {
     isLive,
     isStale,
     status: session.status,
+  });
+});
+// Ensure any unhandled /api/* request returns JSON 404, never falling through to SPA HTML
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.path}` });
+});
+
+// Global API error handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('[BD Location Assist] Unhandled Server Error:', err);
+  res.status(500).json({
+    error: 'অভ্যন্তরীণ সার্ভার ত্রুটি (An internal server error occurred).',
+    message: err?.message || 'Unknown error',
   });
 });
 

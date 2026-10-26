@@ -56,13 +56,20 @@ export const ReceiverConsentPage: React.FC<ReceiverConsentPageProps> = ({
       setError(null);
       try {
         const res = await fetch(`/api/invitations/${token}`);
-        const data = await res.json();
-
         if (!res.ok) {
-          setError(data.error || t.invitationUnavailableTitle);
+          let errMsg = t.invitationUnavailableTitle;
+          try {
+            const ct = res.headers.get('content-type');
+            if (ct && ct.includes('application/json')) {
+              const errData = await res.json();
+              errMsg = errData.error || errMsg;
+            }
+          } catch {}
+          setError(errMsg);
           return;
         }
 
+        const data = await res.json();
         setInvitation(data);
       } catch (err: any) {
         setError(language === 'bn' ? 'সার্ভারে যোগাযোগ করতে ব্যর্থ হয়েছে। ইন্টারনেট সংযোগ পরীক্ষা করুন।' : 'Failed to reach server. Please check internet connection.');
@@ -178,8 +185,20 @@ export const ReceiverConsentPage: React.FC<ReceiverConsentPageProps> = ({
         body: JSON.stringify({ consent: true }),
       });
 
+      if (!res.ok) {
+        let errMsg = 'Failed to save consent.';
+        try {
+          const ct = res.headers.get('content-type');
+          if (ct && ct.includes('application/json')) {
+            const errData = await res.json();
+            errMsg = errData.error || errData.message || errMsg;
+          }
+        } catch {}
+        throw new Error(errMsg);
+      }
+
       const data: ReceiverGrant = await res.json();
-      if (!res.ok || !data.consented) {
+      if (!data.consented) {
         throw new Error(data.message || 'Failed to save consent.');
       }
 

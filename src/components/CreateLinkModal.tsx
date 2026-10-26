@@ -80,8 +80,15 @@ export const CreateLinkModal: React.FC<CreateLinkModalProps> = ({
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to create session.');
+        let errMsg = 'Failed to create session.';
+        try {
+          const ct = res.headers.get('content-type');
+          if (ct && ct.includes('application/json')) {
+            const errData = await res.json();
+            errMsg = errData.error || errMsg;
+          }
+        } catch {}
+        throw new Error(errMsg);
       }
 
       const data = await res.json();

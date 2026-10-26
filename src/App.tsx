@@ -74,8 +74,11 @@ function AppContent() {
         headers: { Authorization: 'Bearer auth_token_bd_owner_2026' },
       });
       if (res.ok) {
-        const data = await res.json();
-        setCurrentUser(data.user);
+        const ct = res.headers.get('content-type');
+        if (ct && ct.includes('application/json')) {
+          const data = await res.json();
+          setCurrentUser(data.user);
+        }
       }
     } catch (e) {
       console.warn('Profile fetch error:', e);
@@ -89,14 +92,17 @@ function AppContent() {
         headers: { Authorization: 'Bearer auth_token_bd_owner_2026' },
       });
       if (res.ok) {
-        const data = await res.json();
-        const sessionList: SharingSession[] = data.sessions || [];
-        setSessions(sessionList);
+        const ct = res.headers.get('content-type');
+        if (ct && ct.includes('application/json')) {
+          const data = await res.json();
+          const sessionList: SharingSession[] = data.sessions || [];
+          setSessions(sessionList);
 
-        // Auto-select first active or latest session if none selected
-        if (!selectedSessionId && sessionList.length > 0) {
-          const activeOne = sessionList.find((s) => s.status === 'SHARING' || s.status === 'PENDING_CONSENT') || sessionList[0];
-          setSelectedSessionId(activeOne.id);
+          // Auto-select first active or latest session if none selected
+          if (!selectedSessionId && sessionList.length > 0) {
+            const activeOne = sessionList.find((s) => s.status === 'SHARING' || s.status === 'PENDING_CONSENT') || sessionList[0];
+            setSelectedSessionId(activeOne.id);
+          }
         }
       }
     } catch (e) {
@@ -113,8 +119,11 @@ function AppContent() {
         headers: { Authorization: 'Bearer auth_token_bd_owner_2026' },
       });
       if (res.ok) {
-        const data: LocationTelemetry = await res.json();
-        setTelemetry(data);
+        const ct = res.headers.get('content-type');
+        if (ct && ct.includes('application/json')) {
+          const data: LocationTelemetry = await res.json();
+          setTelemetry(data);
+        }
       }
     } catch (e) {
       console.warn('Telemetry fetch error:', e);
@@ -438,7 +447,7 @@ function AppContent() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleCopyLink(sess.invitationTokenHash || sess.id, sess.id);
+                                handleCopyLink(sess.invitationToken || sess.invitationTokenHash || sess.id, sess.id);
                               }}
                               title={t.copyLink}
                               className="min-h-[36px] px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium flex items-center gap-1 transition-colors"

@@ -12,6 +12,7 @@ export interface SharingSession {
   purpose: string;
   destinationUrl?: string;
   invitationTokenHash?: string;
+  invitationToken?: string;
   status: 'PENDING_CONSENT' | 'ACTIVE' | 'SHARING' | 'EXPIRED' | 'REVOKED' | 'STOPPED';
   durationMinutes: number | null;
   invitationExpiresAt?: string;
