@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Clock, Copy, Check, Share2, AlertCircle, Compass, Sparkles } from 'lucide-react';
 import { SharingSession } from '../types';
 import { useTranslation } from '../i18n';
+import { getAuthToken } from '../lib/supabase';
 
 interface CreateLinkModalProps {
   isOpen: boolean;
@@ -70,7 +71,7 @@ export const CreateLinkModal: React.FC<CreateLinkModalProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer auth_token_bd_owner_2026',
+          Authorization: `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({
           purpose: purpose.trim() || (language === 'bn' ? 'লোকেশন শেয়ারিং' : 'Location Sharing'),

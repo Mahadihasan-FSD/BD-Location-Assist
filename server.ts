@@ -113,26 +113,172 @@ function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token.trim()).digest('hex');
 }
 
-// Helper: Owner Authentication Middleware
-function authenticateOwner(req: express.Request, res: express.Response, next: express.NextFunction) {
+// Helper: Owner Authentication Middleware (Supports Supabase JWT, Owner Tokens, and Synced Users)
+async function authenticateOwner(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
     return res.status(401).json({ error: 'অননুমোদিত অনুরোধ। প্রমাণীকরণ টোকেন প্রয়োজন (Unauthorized: Bearer token required).' });
   }
 
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  const user = users.find((u) => u.token === token);
-  if (!user) {
-    return res.status(401).json({ error: 'অবৈধ প্রমাণীকরণ টোকেন (Invalid auth token).' });
+  
+  // 1. Check local/synced users pool
+  let user = users.find((u) => u.token === token || u.id === token);
+  if (user) {
+    (req as any).user = user;
+    return next();
   }
 
-  (req as any).user = user;
-  next();
+  // 2. If Supabase client is configured, verify Supabase JWT token
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.auth.getUser(token);
+      if (!error && data?.user) {
+        user = users.find((u) => u.id === data.user.id || u.email.toLowerCase() === (data.user.email || '').toLowerCase());
+        if (!user) {
+          user = {
+            id: data.user.id,
+            email: data.user.email || 'user@bdlocationassist.com',
+            name: (data.user.user_metadata as any)?.name || (data.user.email ? data.user.email.split('@')[0] : 'Authorized User'),
+            token: token,
+            avatarUrl: (data.user.user_metadata as any)?.avatar_url,
+            createdAt: new Date().toISOString(),
+          };
+          users.push(user);
+        } else {
+          user.token = token; // refresh active token
+        }
+        (req as any).user = user;
+        return next();
+      }
+    } catch (sbErr) {
+      console.warn('Supabase token verification check error:', sbErr);
+    }
+  }
+
+  return res.status(401).json({ error: 'অবৈধ বা মেয়াদোত্তীর্ণ প্রমাণীকরণ টোকেন (Invalid or expired auth token).' });
 }
 
 // -------------------------------------------------------------
-// Google OAuth & Authentication Endpoints
+// Supabase & Authentication Endpoints
 // -------------------------------------------------------------
+
+// Returns public auth service status
+app.get('/api/auth/status', (req, res) => {
+  const hasSupabaseUrl = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_URL.trim() !== '');
+  const hasSupabaseAnon = Boolean(process.env.SUPABASE_ANON_KEY && process.env.SUPABASE_ANON_KEY.trim() !== '');
+  res.json({
+    supabaseConfigured: hasSupabaseUrl && hasSupabaseAnon,
+    supabaseUrl: hasSupabaseUrl ? process.env.SUPABASE_URL : null,
+  });
+});
+
+// Sync authenticated user from client (Supabase or OAuth)
+app.post('/api/auth/sync', (req, res) => {
+  const { id, email, name, token, avatarUrl } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required for syncing user.' });
+  }
+
+  let user = users.find((u) => u.email.toLowerCase() === email.toLowerCase() || (id && u.id === id));
+  if (user) {
+    user.token = token || user.token;
+    if (name) user.name = name;
+    if (avatarUrl) user.avatarUrl = avatarUrl;
+  } else {
+    user = {
+      id: id || 'usr_' + crypto.randomBytes(6).toString('hex'),
+      email: email.trim(),
+      name: name?.trim() || email.split('@')[0],
+      token: token || 'auth_' + crypto.randomBytes(16).toString('hex'),
+      avatarUrl: avatarUrl || 'https://lh3.googleusercontent.com/a/default-user=s96-c',
+      createdAt: new Date().toISOString(),
+    };
+    users.push(user);
+  }
+
+  res.json({
+    message: 'User synchronized successfully.',
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      token: user.token,
+      avatarUrl: user.avatarUrl,
+    },
+  });
+});
+
+// Local login fallback for instant testing when Supabase credentials are pending
+app.post('/api/auth/login-local', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'ইমেইল ও পাসওয়ার্ড প্রদান করুন (Email and password are required).' });
+  }
+
+  // Look for existing user or allow demo owner
+  let user = users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
+  if (!user) {
+    // If testing with a custom account, register user seamlessly
+    user = {
+      id: 'usr_' + crypto.randomBytes(6).toString('hex'),
+      email: email.trim(),
+      name: email.split('@')[0],
+      token: 'auth_' + crypto.randomBytes(16).toString('hex'),
+      avatarUrl: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
+      createdAt: new Date().toISOString(),
+    };
+    users.push(user);
+  }
+
+  res.json({
+    message: 'লগইন সফল হয়েছে (Login successful).',
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      token: user.token,
+      avatarUrl: user.avatarUrl,
+    },
+  });
+});
+
+// Local register fallback
+app.post('/api/auth/register-local', (req, res) => {
+  const { email, password, name } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'ইমেইল ও পাসওয়ার্ড প্রদান করুন (Email and password are required).' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে (Password must be at least 6 characters).' });
+  }
+
+  let user = users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
+  if (user) {
+    return res.status(400).json({ error: 'এই ইমেইল দিয়ে ইতিমধ্যে অ্যাকাউন্ট তৈরি করা আছে (Account already exists for this email).' });
+  }
+
+  user = {
+    id: 'usr_' + crypto.randomBytes(6).toString('hex'),
+    email: email.trim(),
+    name: name?.trim() || email.split('@')[0],
+    token: 'auth_' + crypto.randomBytes(16).toString('hex'),
+    avatarUrl: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
+    createdAt: new Date().toISOString(),
+  };
+  users.push(user);
+
+  res.status(201).json({
+    message: 'অ্যাকাউন্ট সফলভাবে তৈরি করা হয়েছে (Account created successfully).',
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      token: user.token,
+      avatarUrl: user.avatarUrl,
+    },
+  });
+});
 
 app.get('/api/auth/me', authenticateOwner, (req, res) => {
   const user = (req as any).user as User;
@@ -147,124 +293,7 @@ app.get('/api/auth/me', authenticateOwner, (req, res) => {
   });
 });
 
-// Construct Google OAuth authorization URL
-app.get('/api/auth/google/url', (req, res) => {
-  const hostUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
-  const redirectUri = `${hostUrl}/auth/callback`;
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-
-  if (!clientId) {
-    return res.json({
-      configured: false,
-      redirectUri,
-      message: 'Google OAuth Client ID is not configured in .env yet.',
-      defaultUser: {
-        email: 'mahadihassanrafi2007@gmail.com',
-        name: 'মাহাদী হাসান (Mahadi Hassan)',
-      },
-    });
-  }
-
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: 'code',
-    scope: 'openid email profile',
-    access_type: 'offline',
-    prompt: 'select_account',
-  });
-
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  res.json({
-    configured: true,
-    url: authUrl,
-    redirectUri,
-  });
-});
-
-// Google OAuth Popup Callback Handler
-app.get(['/auth/callback', '/auth/callback/'], async (req, res) => {
-  const { code } = req.query;
-  const hostUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
-  const redirectUri = `${hostUrl}/auth/callback`;
-
-  let authenticatedUser = users[0];
-
-  if (code && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-    try {
-      // Exchange code for token with Google
-      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          code: String(code),
-          client_id: process.env.GOOGLE_CLIENT_ID,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET,
-          redirect_uri: redirectUri,
-          grant_type: 'authorization_code',
-        }),
-      });
-
-      if (tokenRes.ok) {
-        const tokenData: any = await tokenRes.json();
-        const accessToken = tokenData.access_token || tokenData.id_token;
-        if (accessToken) {
-          const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
-
-          if (userInfoRes.ok) {
-            const profile: any = await userInfoRes.json();
-            let user = users.find((u) => u.email.toLowerCase() === profile.email.toLowerCase());
-            if (!user) {
-              user = {
-                id: 'usr_' + crypto.randomBytes(6).toString('hex'),
-                email: profile.email,
-                name: profile.name || profile.email.split('@')[0],
-                avatarUrl: profile.picture,
-                token: 'auth_' + crypto.randomBytes(16).toString('hex'),
-                createdAt: new Date().toISOString(),
-              };
-              users.push(user);
-            }
-            authenticatedUser = user;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('OAuth code exchange failed:', e);
-    }
-  }
-
-  // Popup communication per oauth-integration guidelines
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>Authenticating with Google...</title>
-      </head>
-      <body style="font-family: sans-serif; text-align: center; padding: 40px; background: #f8fafc; color: #1e293b;">
-        <h3 style="color: #0284c7;">Google প্রমাণীকরণ সফল হয়েছে!</h3>
-        <p>এই উইন্ডোটি স্বয়ংক্রিয়ভাবে বন্ধ হচ্ছে...</p>
-        <script>
-          const payload = {
-            type: 'OAUTH_AUTH_SUCCESS',
-            user: ${JSON.stringify(authenticatedUser)}
-          };
-          if (window.opener) {
-            window.opener.postMessage(payload, '*');
-            setTimeout(() => window.close(), 600);
-          } else {
-            window.location.href = '/';
-          }
-        </script>
-      </body>
-    </html>
-  `);
-});
-
-// One-Click Google Auth Verification (For instant testing when OAuth secrets are in setup)
+// One-Click Google Auth Verification (For instant testing when Supabase keys are pending)
 app.post('/api/auth/google/signin', (req, res) => {
   const { email, name, avatarUrl } = req.body;
   const userEmail = email || 'mahadihassanrafi2007@gmail.com';
