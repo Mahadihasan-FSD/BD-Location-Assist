@@ -1,5 +1,5 @@
 -- ==============================================================================
--- BD Location Assist - Complete Supabase Setup
+-- BD Location Assist - Resilient Supabase Migration Setup
 -- Paste and run this script in: Supabase Dashboard > SQL Editor > New query
 -- ==============================================================================
 
@@ -11,6 +11,10 @@ CREATE TABLE IF NOT EXISTS public.users (
     avatar_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Ensure all columns exist on users
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS name TEXT;
 
 -- 2. Create Trigger to automatically create a public.users profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -60,6 +64,19 @@ CREATE TABLE IF NOT EXISTS public.sharing_sessions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Ensure all columns exist on sharing_sessions even if table existed before
+ALTER TABLE public.sharing_sessions ADD COLUMN IF NOT EXISTS session_expires_at TIMESTAMPTZ;
+ALTER TABLE public.sharing_sessions ADD COLUMN IF NOT EXISTS invitation_expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '48 hours');
+ALTER TABLE public.sharing_sessions ADD COLUMN IF NOT EXISTS destination_url TEXT;
+ALTER TABLE public.sharing_sessions ADD COLUMN IF NOT EXISTS duration_minutes INT;
+ALTER TABLE public.sharing_sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+ALTER TABLE public.sharing_sessions ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ;
+ALTER TABLE public.sharing_sessions ADD COLUMN IF NOT EXISTS last_latitude DOUBLE PRECISION;
+ALTER TABLE public.sharing_sessions ADD COLUMN IF NOT EXISTS last_longitude DOUBLE PRECISION;
+ALTER TABLE public.sharing_sessions ADD COLUMN IF NOT EXISTS last_accuracy_meters DOUBLE PRECISION;
+ALTER TABLE public.sharing_sessions ADD COLUMN IF NOT EXISTS last_captured_at TIMESTAMPTZ;
+ALTER TABLE public.sharing_sessions ADD COLUMN IF NOT EXISTS last_received_at TIMESTAMPTZ;
+
 -- 4. Create Receiver Grants Table (Explicit Recipient Consent)
 CREATE TABLE IF NOT EXISTS public.receiver_grants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -100,7 +117,7 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
 -- 7. Performance Indexes
 CREATE INDEX IF NOT EXISTS idx_sessions_owner ON public.sharing_sessions(owner_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_token_hash ON public.sharing_sessions(invitation_token_hash);
-CREATE INDEX IF NOT EXISTS idx_sessions_status ON public.sharing_sessions(status, session_expires_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_status ON public.sharing_sessions(status, expires_at);
 CREATE INDEX IF NOT EXISTS idx_grants_session ON public.receiver_grants(session_id);
 CREATE INDEX IF NOT EXISTS idx_grants_token_hash ON public.receiver_grants(grant_token_hash);
 CREATE INDEX IF NOT EXISTS idx_locations_session_time ON public.location_records(session_id, recorded_at DESC);
@@ -113,7 +130,7 @@ ALTER TABLE public.location_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- 9. Row Level Security Policies
--- Users table: users can view any profile or their own
+-- Users: authenticated users can view profiles
 DROP POLICY IF EXISTS "Users can view profiles" ON public.users;
 CREATE POLICY "Users can view profiles"
 ON public.users FOR SELECT
@@ -126,7 +143,7 @@ ON public.users FOR UPDATE
 TO authenticated
 USING (auth.uid() = id);
 
--- Sharing Sessions table: owners have full access to their sessions
+-- Sharing Sessions: owners have full access to their sessions
 DROP POLICY IF EXISTS "Owners manage their sessions" ON public.sharing_sessions;
 CREATE POLICY "Owners manage their sessions"
 ON public.sharing_sessions FOR ALL
@@ -134,14 +151,14 @@ TO authenticated
 USING (auth.uid() = owner_id)
 WITH CHECK (auth.uid() = owner_id);
 
--- Sharing Sessions: allow anonymous read with valid invitation hash (for recipients)
+-- Sharing Sessions: allow recipient to view session details via link
 DROP POLICY IF EXISTS "Recipients can view session invitation" ON public.sharing_sessions;
 CREATE POLICY "Recipients can view session invitation"
 ON public.sharing_sessions FOR SELECT
 TO anon
 USING (status != 'REVOKED');
 
--- Receiver Grants: allow session owners to see grants
+-- Receiver Grants: session owners can view grants
 DROP POLICY IF EXISTS "Owners can view session grants" ON public.receiver_grants;
 CREATE POLICY "Owners can view session grants"
 ON public.receiver_grants FOR SELECT
@@ -153,7 +170,7 @@ USING (
     )
 );
 
--- Receiver Grants: allow recipients to create grant on consent
+-- Receiver Grants: allow recipients to create grant upon consenting
 DROP POLICY IF EXISTS "Recipients can create grant" ON public.receiver_grants;
 CREATE POLICY "Recipients can create grant"
 ON public.receiver_grants FOR INSERT
@@ -172,7 +189,7 @@ USING (
     )
 );
 
--- Location Records: allow recipients to insert telemetry
+-- Location Records: allow recipients to transmit telemetry
 DROP POLICY IF EXISTS "Recipients can transmit telemetry" ON public.location_records;
 CREATE POLICY "Recipients can transmit telemetry"
 ON public.location_records FOR INSERT

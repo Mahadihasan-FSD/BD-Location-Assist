@@ -84,7 +84,7 @@ export function getAuthToken(): string {
   if (user?.token) {
     return user.token;
   }
-  return 'auth_token_bd_owner_2026';
+  return '';
 }
 
 /**

@@ -12,6 +12,55 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
+// Commercial-Grade Security Headers Middleware
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(self)');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
+// In-Memory Rate Limiter (sliding window per IP)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function createRateLimiter(maxRequests: number, windowMs: number) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown-ip';
+    const now = Date.now();
+    const entry = rateLimitMap.get(ip);
+
+    if (!entry || now > entry.resetAt) {
+      rateLimitMap.set(ip, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+
+    entry.count += 1;
+    if (entry.count > maxRequests) {
+      return res.status(429).json({
+        error: 'অনেক বেশি অনুরোধ করা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন (Too many requests. Please try again later).',
+        retryAfterMs: Math.max(0, entry.resetAt - now),
+      });
+    }
+
+    next();
+  };
+}
+
+// Clean up old rate limit entries every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of rateLimitMap.entries()) {
+    if (now > entry.resetAt) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 10 * 60 * 1000);
+
 // Optional Supabase Integration
 let supabase: SupabaseClient | null = null;
 if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)) {
@@ -91,17 +140,8 @@ export interface AuditLog {
   timestamp: string;
 }
 
-// Default Seed User (Authenticated Owner)
-const users: User[] = [
-  {
-    id: 'usr_dhaka_01',
-    email: 'mahadihassanrafi2007@gmail.com',
-    name: 'মাহাদী হাসান (Mahadi Hassan)',
-    token: 'auth_token_bd_owner_2026',
-    avatarUrl: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
-    createdAt: new Date().toISOString(),
-  },
-];
+// Real Authenticated Users Pool (populated strictly via real Supabase Auth)
+const users: User[] = [];
 
 const sessions: SharingSession[] = [];
 const grants: ReceiverGrant[] = [];
@@ -223,43 +263,12 @@ app.get('/api/auth/me', authenticateOwner, (req, res) => {
   });
 });
 
-// One-Click Google Auth Verification (For instant testing when Supabase keys are pending)
-app.post('/api/auth/google/signin', (req, res) => {
-  const { email, name, avatarUrl } = req.body;
-  const userEmail = email || 'mahadihassanrafi2007@gmail.com';
-  const userName = name || 'মাহাদী হাসান (Mahadi Hassan)';
-
-  let user = users.find((u) => u.email.toLowerCase() === userEmail.toLowerCase());
-  if (!user) {
-    user = {
-      id: 'usr_' + crypto.randomBytes(6).toString('hex'),
-      email: userEmail,
-      name: userName,
-      avatarUrl: avatarUrl || 'https://lh3.googleusercontent.com/a/default-user=s96-c',
-      token: 'auth_' + crypto.randomBytes(16).toString('hex'),
-      createdAt: new Date().toISOString(),
-    };
-    users.push(user);
-  }
-
-  res.json({
-    message: 'Google দিয়ে সফলভাবে সাইন-ইন করা হয়েছে (Google Sign-In successful).',
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      token: user.token,
-      avatarUrl: user.avatarUrl,
-    },
-  });
-});
-
 // -------------------------------------------------------------
 // PART 2: Working Sharing Session & Link Creation (Requester)
 // -------------------------------------------------------------
 
 // 1. Create a Sharing Session & Generate Secure Invitation Token (Supports Smart Destination Link)
-app.post('/api/sessions', authenticateOwner, (req, res) => {
+app.post('/api/sessions', createRateLimiter(60, 60000), authenticateOwner, (req, res) => {
   const user = (req as any).user as User;
   const { purpose, durationMinutes, destinationUrl } = req.body;
 
@@ -548,7 +557,7 @@ app.get('/api/invitations/:token', (req, res) => {
 });
 
 // 2. Record Consent & Create Isolated Receiver Grant
-app.post('/api/invitations/:token/consent', (req, res) => {
+app.post('/api/invitations/:token/consent', createRateLimiter(30, 60000), (req, res) => {
   const { token } = req.params;
   const { consent } = req.body;
 
@@ -667,7 +676,7 @@ app.post('/api/grants/:grantId/stop', (req, res) => {
 // -------------------------------------------------------------
 
 // 1. Ingest Real GPS Location Updates from Authorized Receiver
-app.post('/api/sessions/:sessionId/location', (req, res) => {
+app.post('/api/sessions/:sessionId/location', createRateLimiter(120, 60000), (req, res) => {
   const { sessionId } = req.params;
   const grantToken = (req.headers['x-grant-token'] as string) || (req.headers.authorization?.replace(/^Bearer\s+/i, '') as string);
 

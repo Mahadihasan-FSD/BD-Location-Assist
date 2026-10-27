@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   ArrowRight,
   Loader2,
-  Sparkles,
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { signInWithEmail, signUpWithEmail, signInWithGoogle, isSupabaseConfigured } from '../lib/supabase';
@@ -180,51 +179,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       // If redirected, browser proceeds to Supabase Google OAuth endpoint
     } catch (err: any) {
       setErrorMessage(err.message || 'Google sign-in initiation failed.');
-      setIsLoading(false);
-    }
-  };
-
-  // Instant 1-click test sign in
-  const handleQuickDemoSignIn = async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
-    try {
-      const res = await fetch('/api/auth/google/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'mahadihassanrafi2007@gmail.com',
-          name: 'মাহাদী হাসান (Mahadi Hassan)',
-        }),
-      });
-      if (res.ok) {
-        const ct = res.headers.get('content-type');
-        if (ct && ct.includes('application/json')) {
-          const data = await res.json();
-          if (data?.user) {
-            onLoginSuccess(data.user);
-            onClose();
-            return;
-          }
-        }
-      }
-      onLoginSuccess({
-        id: 'usr_dhaka_01',
-        email: 'mahadihassanrafi2007@gmail.com',
-        name: 'মাহাদী হাসান (Mahadi Hassan)',
-        token: 'auth_token_bd_owner_2026',
-        avatarUrl: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
-      });
-      onClose();
-    } catch {
-      onLoginSuccess({
-        id: 'usr_dhaka_01',
-        email: 'mahadihassanrafi2007@gmail.com',
-        name: 'মাহাদী হাসান (Mahadi Hassan)',
-        token: 'auth_token_bd_owner_2026',
-      });
-      onClose();
-    } finally {
       setIsLoading(false);
     }
   };
@@ -444,30 +398,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </form>
             </div>
           )}
-
-          {/* Divider */}
-          <div className="relative flex py-1 items-center">
-            <div className="grow border-t border-slate-200"></div>
-            <span className="shrink mx-3 text-[10px] font-medium text-slate-400 uppercase tracking-wider">
-              {language === 'bn' ? 'অথবা এক ক্লিকে প্রবেশ' : 'Or quick preview access'}
-            </span>
-            <div className="grow border-t border-slate-200"></div>
-          </div>
-
-          {/* Quick Demo Owner Sign-In Button */}
-          <button
-            type="button"
-            onClick={handleQuickDemoSignIn}
-            disabled={isLoading}
-            className="w-full min-h-[42px] py-2 px-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-2xs"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>
-              {language === 'bn'
-                ? 'অনুমোদিত ডেমো অ্যাকাউন্ট দিয়ে প্রবেশ করুন'
-                : 'Sign In with Verified Account (Instant)'}
-            </span>
-          </button>
         </div>
 
         {/* Footer info notice */}
