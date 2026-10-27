@@ -117,6 +117,26 @@ function AppContent() {
     }
   }, [currentPath, currentUser, language]);
 
+  // Dynamic SEO Title & Metadata Sync for SPA Navigation
+  useEffect(() => {
+    if (currentPath.startsWith('/share/') || currentPath === '/consent') {
+      document.title =
+        language === 'bn'
+          ? 'সম্মতি অনুরোধ | BD Location Assist (নিরাপদ লাইভ ট্র্যাকিং)'
+          : 'Consent Required | BD Location Assist (Safe Live Tracking)';
+    } else if (currentPath === '/dashboard') {
+      document.title =
+        language === 'bn'
+          ? 'লাইভ ট্র্যাকিং ড্যাশবোর্ড | BD Location Assist'
+          : 'Live Tracking Dashboard | BD Location Assist';
+    } else {
+      document.title =
+        language === 'bn'
+          ? 'BD Location Assist – সম্মতিভিত্তিক লাইভ লোকেশন ট্র্যাকিং বাংলাদেশ'
+          : 'BD Location Assist – Consent-Based Live GPS Tracking Bangladesh';
+    }
+  }, [currentPath, language]);
+
   // Fetch Current User Profile
   const fetchProfile = async () => {
     try {

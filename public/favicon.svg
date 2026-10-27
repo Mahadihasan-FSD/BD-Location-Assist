@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="bdGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0f766e" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="100" height="100" rx="24" fill="url(#bdGrad)" />
+  <circle cx="50" cy="50" r="32" stroke="#ffffff" stroke-opacity="0.3" stroke-width="2" stroke-dasharray="4 4" />
+  <g filter="url(#shadow)">
+    <!-- Shield Outline -->
+    <path d="M50 20C62 20 74 27 74 39C74 58 50 78 50 78C50 78 26 58 26 39C26 27 38 20 50 20Z" fill="#ffffff" />
+    <!-- Center Pulse Pin dot -->
+    <circle cx="50" cy="40" r="10" fill="#0284c7" />
+    <circle cx="50" cy="40" r="4" fill="#ffffff" />
+  </g>
+</svg>

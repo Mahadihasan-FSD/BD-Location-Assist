@@ -1,0 +1,9 @@
+# BD Location Assist - Robots.txt
+# https://bdla.vercel.app
+
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# Crawler Host & Sitemap
+Sitemap: https://bdla.vercel.app/sitemap.xml

@@ -1,24 +1,149 @@
 <!doctype html>
-<html lang="en">
+<html lang="bn" dir="ltr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BD Location Assist | বিডি লোকেশন অ্যাসিস্ট</title>
-    <meta name="description" content="বাংলাদেশ-কেন্দ্রিক নিরাপদ সম্মতিভিত্তিক লাইভ লোকেশন শেয়ারিং ও ট্র্যাকিং প্ল্যাটফর্ম। Real-time consent-based location sharing for Bangladesh." />
-    <meta property="og:title" content="BD Location Assist | বিডি লোকেশন অ্যাসিস্ট" />
-    <meta property="og:description" content="নিরাপদ সম্মতিভিত্তিক লাইভ লোকেশন শেয়ারিং প্ল্যাটফর্ম।" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    
+    <!-- Primary SEO Page Title & Meta Description -->
+    <title>BD Location Assist – Consent-Based Live GPS Tracking Bangladesh</title>
+    <meta
+      name="description"
+      content="বাংলাদেশ-কেন্দ্রিক নিরাপদ সম্মতিভিত্তিক লাইভ লোকেশন শেয়ারিং ও ট্র্যাকিং প্ল্যাটফর্ম। Real-time consent-based location sharing and emergency safety for Bangladesh."
+    />
+    <meta
+      name="keywords"
+      content="BD Location Assist, live location sharing Bangladesh, real-time GPS tracking Dhaka, family safety tracking BD, emergency location share, সম্মতিভিত্তিক লোকেশন শেয়ারিং, লাইভ লোকেশন ট্র্যাকিং বাংলাদেশ, নিরাপদ জিপিএস লোকেশন"
+    />
+    <meta name="author" content="BD Location Assist" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="application-name" content="BD Location Assist" />
+    <meta name="theme-color" content="#0d9488" />
+    <meta name="color-scheme" content="light dark" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://bdla.vercel.app/" />
+
+    <!-- Favicon & Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <!-- OpenGraph Social Cards -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="BD Location Assist" />
+    <meta property="og:url" content="https://bdla.vercel.app/" />
+    <meta property="og:title" content="BD Location Assist – Consent-Based Live GPS Tracking Bangladesh" />
+    <meta
+      property="og:description"
+      content="বাংলাদেশ-কেন্দ্রিক নিরাপদ সম্মতিভিত্তিক লাইভ লোকেশন শেয়ারিং ও ট্র্যাকিং প্ল্যাটফর্ম। Real-time consent-based location sharing for Bangladesh."
+    />
+    <meta property="og:locale" content="bn_BD" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:image" content="https://bdla.vercel.app/og-image.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="BD Location Assist - Safe & Consent-Based Real-time Location Sharing in Bangladesh" />
+
+    <!-- Twitter / X Cards -->
     <meta name="twitter:card" content="summary_large_image" />
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <meta name="twitter:site" content="@bdlocationassist" />
+    <meta name="twitter:creator" content="@bdlocationassist" />
+    <meta name="twitter:title" content="BD Location Assist – Consent-Based Live GPS Tracking Bangladesh" />
+    <meta
+      name="twitter:description"
+      content="বাংলাদেশ-কেন্দ্রিক নিরাপদ সম্মতিভিত্তিক লাইভ লোকেশন শেয়ারিং ও ট্র্যাকিং প্ল্যাটফর্ম। Real-time consent-based location sharing for Bangladesh."
+    />
+    <meta name="twitter:image" content="https://bdla.vercel.app/og-image.svg" />
+
+    <!-- Leaflet Map CSS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+
     <!-- Google Fonts: Hind Siliguri for Bengali + Inter for Latin -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Schema.org Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebApplication",
+          "@id": "https://bdla.vercel.app/#webapp",
+          "name": "BD Location Assist",
+          "alternateName": "বিডি লোকেশন অ্যাসিস্ট",
+          "url": "https://bdla.vercel.app/",
+          "applicationCategory": "UtilitiesApplication",
+          "operatingSystem": "All",
+          "browserRequirements": "Requires JavaScript and HTML5 Geolocation API",
+          "description": "বাংলাদেশ-কেন্দ্রিক নিরাপদ সম্মতিভিত্তিক লাইভ লোকেশন শেয়ারিং ও ট্র্যাকিং প্ল্যাটফর্ম। Real-time consent-based location sharing and emergency safety for Bangladesh.",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "BDT"
+          },
+          "featureList": [
+            "Consent-based mutual tracking links",
+            "Custom session expiry (15m, 1h, 8h, 24h)",
+            "Instant one-click tracking revocation",
+            "Live Leaflet & OpenStreetMap GPS rendering",
+            "Emergency SOS & location broadcast",
+            "Bilingual Bengali & English interface"
+          ],
+          "inLanguage": ["bn-BD", "en-US"]
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://bdla.vercel.app/#organization",
+          "name": "BD Location Assist",
+          "url": "https://bdla.vercel.app/",
+          "logo": "https://bdla.vercel.app/favicon.svg"
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://bdla.vercel.app/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "BD Location Assist কীভাবে কাজ করে?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "BD Location Assist একটি নিরাপদ সম্মতিভিত্তিক লোকেশন শেয়ারিং প্ল্যাটফর্ম। আপনি একটি সুরক্ষিত লিংক তৈরি করে যেকোনো প্রাপককে পাঠাতে পারেন। প্রাপক সম্মতি দিলে কেবল তখনই রিয়েল-টাইমে লোকেশন দেখা যায়।"
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "লোকেশন ট্র্যাকিং কি যেকোনো সময় বন্ধ করা যায়?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "হ্যাঁ, প্রেরক যেকোনো সময় একক ক্লিকে সেশন রিভোক বা 'Stop Sharing' করতে পারেন। নির্দিষ্ট সেশনের সময় শেষ হলেও স্বয়ংক্রিয়ভাবে লোকেশন শেয়ারিং বন্ধ হয়ে যায়।"
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is BD Location Assist free to use in Bangladesh?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, BD Location Assist is completely free for individual use, emergency safety, and family location sharing across Bangladesh."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
