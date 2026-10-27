@@ -155,8 +155,16 @@ WITH CHECK (auth.uid() = owner_id);
 DROP POLICY IF EXISTS "Recipients can view session invitation" ON public.sharing_sessions;
 CREATE POLICY "Recipients can view session invitation"
 ON public.sharing_sessions FOR SELECT
-TO anon
+TO anon, authenticated
 USING (status != 'REVOKED');
+
+-- Sharing Sessions: allow recipients to activate session upon consent
+DROP POLICY IF EXISTS "Recipients can activate session" ON public.sharing_sessions;
+CREATE POLICY "Recipients can activate session"
+ON public.sharing_sessions FOR UPDATE
+TO anon, authenticated
+USING (status != 'REVOKED')
+WITH CHECK (true);
 
 -- Receiver Grants: session owners can view grants
 DROP POLICY IF EXISTS "Owners can view session grants" ON public.receiver_grants;
@@ -216,3 +224,26 @@ BEGIN
     WHERE created_at < NOW() - INTERVAL '24 hours';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 11. Automated Session Telemetry Sync Trigger
+CREATE OR REPLACE FUNCTION public.handle_new_location()
+RETURNS trigger AS $$
+BEGIN
+    UPDATE public.sharing_sessions
+    SET 
+        last_latitude = NEW.latitude,
+        last_longitude = NEW.longitude,
+        last_accuracy_meters = NEW.accuracy_meters,
+        last_captured_at = NEW.recorded_at,
+        last_received_at = NOW(),
+        status = CASE WHEN status = 'REVOKED' OR status = 'STOPPED' OR status = 'EXPIRED' THEN status ELSE 'SHARING' END
+    WHERE id = NEW.session_id;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_location_record_created ON public.location_records;
+CREATE TRIGGER on_location_record_created
+    AFTER INSERT ON public.location_records
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_location();
+

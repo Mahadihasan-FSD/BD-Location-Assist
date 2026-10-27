@@ -16,6 +16,12 @@ import {
 import { InvitationDetails, ReceiverGrant } from '../types';
 import { useTranslation } from '../i18n';
 
+import {
+  validateInvitationToken,
+  submitConsent,
+  transmitTelemetry,
+} from '../services/sessionService';
+
 interface ReceiverConsentPageProps {
   token: string;
   onNavigateHome: () => void;
@@ -49,30 +55,25 @@ export const ReceiverConsentPage: React.FC<ReceiverConsentPageProps> = ({
 
   const watchIdRef = useRef<number | null>(null);
 
-  // 1. Validate Invitation with Backend on Load
+  // 1. Validate Invitation with Backend / Supabase on Load
   useEffect(() => {
     async function validateToken() {
       setIsLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/invitations/${token}`);
-        if (!res.ok) {
-          let errMsg = t.invitationUnavailableTitle;
-          try {
-            const ct = res.headers.get('content-type');
-            if (ct && ct.includes('application/json')) {
-              const errData = await res.json();
-              errMsg = errData.error || errMsg;
-            }
-          } catch {}
-          setError(errMsg);
+        const data = await validateInvitationToken(token);
+        if (!data.valid) {
+          setError(data.error || t.invitationUnavailableTitle);
           return;
         }
-
-        const data = await res.json();
         setInvitation(data);
       } catch (err: any) {
-        setError(language === 'bn' ? 'সার্ভারে যোগাযোগ করতে ব্যর্থ হয়েছে। ইন্টারনেট সংযোগ পরীক্ষা করুন।' : 'Failed to reach server. Please check internet connection.');
+        setError(
+          err?.message ||
+            (language === 'bn'
+              ? 'সার্ভারে যোগাযোগ করতে ব্যর্থ হয়েছে। ইন্টারনেট সংযোগ পরীক্ষা করুন।'
+              : 'Failed to reach server. Please check internet connection.')
+        );
       } finally {
         setIsLoading(false);
       }
@@ -89,7 +90,7 @@ export const ReceiverConsentPage: React.FC<ReceiverConsentPageProps> = ({
     };
   }, [token, language]);
 
-  // 2. Transmit Real Location Fix to Backend
+  // 2. Transmit Real Location Fix to Backend / Supabase
   const transmitLocation = async (
     pos: GeolocationPosition,
     grantToken: string,
@@ -99,21 +100,14 @@ export const ReceiverConsentPage: React.FC<ReceiverConsentPageProps> = ({
     try {
       const { latitude, longitude, accuracy, altitude, speed, heading } = pos.coords;
 
-      await fetch(`/api/sessions/${sessionId}/location`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Grant-Token': grantToken,
-        },
-        body: JSON.stringify({
-          latitude,
-          longitude,
-          accuracyMeters: accuracy,
-          altitudeMeters: altitude ?? undefined,
-          speed: speed ?? undefined,
-          heading: heading ?? undefined,
-          recordedAt: new Date(pos.timestamp).toISOString(),
-        }),
+      await transmitTelemetry(sessionId, grantToken, {
+        latitude,
+        longitude,
+        accuracyMeters: accuracy,
+        altitudeMeters: altitude ?? undefined,
+        speed: speed ?? undefined,
+        heading: heading ?? undefined,
+        recordedAt: new Date(pos.timestamp).toISOString(),
       });
 
       setCurrentCoords({
@@ -179,25 +173,7 @@ export const ReceiverConsentPage: React.FC<ReceiverConsentPageProps> = ({
     setIsLoading(true);
 
     try {
-      const res = await fetch(`/api/invitations/${token}/consent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consent: true }),
-      });
-
-      if (!res.ok) {
-        let errMsg = 'Failed to save consent.';
-        try {
-          const ct = res.headers.get('content-type');
-          if (ct && ct.includes('application/json')) {
-            const errData = await res.json();
-            errMsg = errData.error || errData.message || errMsg;
-          }
-        } catch {}
-        throw new Error(errMsg);
-      }
-
-      const data: ReceiverGrant = await res.json();
+      const data: ReceiverGrant = await submitConsent(token, true);
       if (!data.consented) {
         throw new Error(data.message || 'Failed to save consent.');
       }
@@ -226,11 +202,7 @@ export const ReceiverConsentPage: React.FC<ReceiverConsentPageProps> = ({
   // 5. Handle Explicit Reject
   const handleRejectConsent = async () => {
     try {
-      await fetch(`/api/invitations/${token}/consent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consent: false }),
-      });
+      await submitConsent(token, false);
     } catch (e) {
       // ignore
     }

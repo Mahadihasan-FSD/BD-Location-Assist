@@ -4,6 +4,8 @@ import { SharingSession } from '../types';
 import { useTranslation } from '../i18n';
 import { getAuthToken } from '../lib/supabase';
 
+import { createSharingSession } from '../services/sessionService';
+
 interface CreateLinkModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -67,36 +69,21 @@ export const CreateLinkModal: React.FC<CreateLinkModalProps> = ({
     setError(null);
 
     try {
-      const res = await fetch('/api/sessions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
-        body: JSON.stringify({
-          purpose: purpose.trim() || (language === 'bn' ? 'লোকেশন শেয়ারিং' : 'Location Sharing'),
-          durationMinutes: durationMinutes === 0 ? null : durationMinutes,
-          destinationUrl: destinationUrl.trim() || undefined,
-        }),
+      const result = await createSharingSession({
+        purpose: purpose.trim() || (language === 'bn' ? 'লোকেশন শেয়ারিং' : 'Location Sharing'),
+        durationMinutes: durationMinutes === 0 ? null : durationMinutes,
+        destinationUrl: destinationUrl.trim() || undefined,
       });
 
-      if (!res.ok) {
-        let errMsg = 'Failed to create session.';
-        try {
-          const ct = res.headers.get('content-type');
-          if (ct && ct.includes('application/json')) {
-            const errData = await res.json();
-            errMsg = errData.error || errMsg;
-          }
-        } catch {}
-        throw new Error(errMsg);
-      }
-
-      const data = await res.json();
-      setCreatedUrl(data.invitationUrl);
-      onSessionCreated(data.session, data.invitationUrl);
+      setCreatedUrl(result.invitationUrl);
+      onSessionCreated(result.session, result.invitationUrl);
     } catch (err: any) {
-      setError(err.message || 'An error occurred. Please try again.');
+      setError(
+        err?.message ||
+          (language === 'bn'
+            ? 'সেশন তৈরি করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।'
+            : 'Failed to create session. Please try again.')
+      );
     } finally {
       setIsSubmitting(false);
     }

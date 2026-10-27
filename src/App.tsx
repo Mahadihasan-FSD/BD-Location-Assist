@@ -38,6 +38,11 @@ import {
   isSupabaseConfigured,
   syncUserWithBackend,
 } from './lib/supabase';
+import {
+  fetchUserSessions,
+  fetchSessionTelemetry,
+  revokeSharingSession,
+} from './services/sessionService';
 
 function AppContent() {
   const { t, language, toggleLanguage } = useTranslation();
@@ -70,16 +75,36 @@ function AppContent() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Listen to Supabase Auth state changes if configured
+  // Listen to Supabase Auth state changes & synchronize session persistence
   useEffect(() => {
     if (isSupabaseConfigured()) {
+      // 1. Initial active session check on mount
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user && session?.access_token) {
+          const profile: UserProfile = {
+            id: session.user.id,
+            email: session.user.email || 'user@bdlocationassist.com',
+            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+            token: session.access_token,
+            avatarUrl: session.user.user_metadata?.avatar_url,
+          };
+          setStoredUser(profile);
+          setCurrentUser(profile);
+          syncUserWithBackend(profile);
+        }
+      });
+
+      // 2. Continuous auth subscription (handles login, logout, token refresh)
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
+        if (
+          (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') &&
+          session?.user
+        ) {
           const profile: UserProfile = {
             id: session.user.id,
-            email: session.user.email || 'user@example.com',
+            email: session.user.email || 'user@bdlocationassist.com',
             name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
             token: session.access_token,
             avatarUrl: session.user.user_metadata?.avatar_url,
@@ -162,28 +187,16 @@ function AppContent() {
   // Fetch All Sessions for Requester
   const fetchSessions = async () => {
     try {
-      const token = getAuthToken();
-      const res = await fetch('/api/sessions', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const ct = res.headers.get('content-type');
-        if (ct && ct.includes('application/json')) {
-          const data = await res.json();
-          const sessionList: SharingSession[] = data.sessions || [];
-          setSessions(sessionList);
+      setIsLoadingSessions(true);
+      const sessionList = await fetchUserSessions();
+      setSessions(sessionList);
 
-          // Auto-select first active or latest session if none selected
-          if (!selectedSessionId && sessionList.length > 0) {
-            const activeOne =
-              sessionList.find((s) => s.status === 'SHARING' || s.status === 'PENDING_CONSENT') ||
-              sessionList[0];
-            setSelectedSessionId(activeOne.id);
-          }
-        }
-      } else if (res.status === 401) {
-        // Token expired or invalid
-        console.warn('Unauthorized session access.');
+      // Auto-select first active or latest session if none selected
+      if (!selectedSessionId && sessionList.length > 0) {
+        const activeOne =
+          sessionList.find((s) => s.status === 'SHARING' || s.status === 'PENDING_CONSENT') ||
+          sessionList[0];
+        setSelectedSessionId(activeOne.id);
       }
     } catch (e) {
       console.warn('Sessions fetch error:', e);
@@ -195,16 +208,9 @@ function AppContent() {
   // Fetch Real Location Telemetry for Selected Session
   const fetchTelemetry = async (sessionId: string) => {
     try {
-      const token = getAuthToken();
-      const res = await fetch(`/api/sessions/${sessionId}/location`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const ct = res.headers.get('content-type');
-        if (ct && ct.includes('application/json')) {
-          const data: LocationTelemetry = await res.json();
-          setTelemetry(data);
-        }
+      const data = await fetchSessionTelemetry(sessionId);
+      if (data) {
+        setTelemetry(data);
       }
     } catch (e) {
       console.warn('Telemetry fetch error:', e);
@@ -250,12 +256,8 @@ function AppContent() {
   // Handle Revoke / Stop Session
   const handleRevokeSession = async (sessionId: string) => {
     try {
-      const token = getAuthToken();
-      const res = await fetch(`/api/sessions/${sessionId}/revoke`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
+      const ok = await revokeSharingSession(sessionId);
+      if (ok) {
         await fetchSessions();
         if (selectedSessionId === sessionId) {
           await fetchTelemetry(sessionId);

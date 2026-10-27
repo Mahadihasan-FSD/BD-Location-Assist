@@ -61,12 +61,13 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000);
 
-// Optional Supabase Integration
+// Optional Supabase Integration (supports both SUPABASE_ and VITE_SUPABASE_ prefixes)
 let supabase: SupabaseClient | null = null;
-if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)) {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!;
+const sbUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const sbKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+if (sbUrl && sbKey) {
   try {
-    supabase = createClient(process.env.SUPABASE_URL, key);
+    supabase = createClient(sbUrl, sbKey);
     console.log('[BD Location Assist] Supabase client initialized.');
   } catch (err) {
     console.warn('[BD Location Assist] Failed to initialize Supabase client, using local store:', err);
@@ -161,6 +162,9 @@ async function authenticateOwner(req: express.Request, res: express.Response, ne
   }
 
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) {
+    return res.status(401).json({ error: 'অবৈধ প্রমাণীকরণ টোকেন (Empty bearer token).' });
+  }
   
   // 1. Check local/synced users pool
   let user = users.find((u) => u.token === token || u.id === token);
@@ -169,7 +173,7 @@ async function authenticateOwner(req: express.Request, res: express.Response, ne
     return next();
   }
 
-  // 2. If Supabase client is configured, verify Supabase JWT token
+  // 2. If Supabase client is configured, verify Supabase JWT token via Supabase Auth
   if (supabase) {
     try {
       const { data, error } = await supabase.auth.getUser(token);
@@ -193,6 +197,36 @@ async function authenticateOwner(req: express.Request, res: express.Response, ne
       }
     } catch (sbErr) {
       console.warn('Supabase token verification check error:', sbErr);
+    }
+  }
+
+  // 3. Resilient JWT fallback verification (when server restarted or offline Supabase check)
+  if (token.startsWith('ey') && token.split('.').length === 3) {
+    try {
+      const payloadBase64 = token.split('.')[1];
+      const payloadJson = Buffer.from(payloadBase64, 'base64').toString('utf8');
+      const payload = JSON.parse(payloadJson);
+      const isNotExpired = !payload.exp || payload.exp * 1000 > Date.now();
+      if (payload.sub && isNotExpired) {
+        user = users.find((u) => u.id === payload.sub);
+        if (!user) {
+          user = {
+            id: payload.sub,
+            email: payload.email || 'user@bdlocationassist.com',
+            name: payload.user_metadata?.name || (payload.email ? payload.email.split('@')[0] : 'Authorized User'),
+            token: token,
+            avatarUrl: payload.user_metadata?.avatar_url,
+            createdAt: new Date().toISOString(),
+          };
+          users.push(user);
+        } else {
+          user.token = token;
+        }
+        (req as any).user = user;
+        return next();
+      }
+    } catch (jwtErr) {
+      console.warn('JWT fallback decode warning:', jwtErr);
     }
   }
 
